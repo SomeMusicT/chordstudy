@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chord Master - Mobile</title>
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --main-blue: #3498db; --bg-gray: #f8f9fa; --dark-text: #2c3e50; }
+        
+        body { 
+            font-family: 'Pretendard', sans-serif; 
+            background: var(--bg-gray); 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin: 0; 
+            height: 100dvh; /* 모바일 브라우저 툴바 대응 */
+            overflow: hidden; 
+            user-select: none; 
+            -webkit-user-select: none;
+            color: var(--dark-text); 
+        }
+        
+        .top-nav-bar { 
+            width: 100%; display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 20px; box-sizing: border-box; z-index: 1000; flex-shrink: 0;
+        }
+        .icon-btn { 
+            font-size: 18px; font-weight: 800; cursor: pointer; transition: 0.2s; 
+            background: white; padding: 10px 15px; border-radius: 12px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); color: var(--dark-text); border: 2px solid #eee; 
+        }
+        #game-info { 
+            font-size: 16px; font-weight: bold; background: white; padding: 10px 15px; 
+            border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 2px solid #eee; 
+        }
+        
+        .game-content {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            width: 100%; padding: 0 10px; box-sizing: border-box;
+        }
+
+        #combo-info { height: 24px; font-weight: bold; font-size: 20px; color: var(--main-blue); margin-bottom: 10px; }
+
+        /* 모바일 대응 오선지 래퍼 */
+        #staff-wrapper { 
+            position: relative; width: 100%; max-width: 850px; height: 40vh; min-height: 280px;
+            background: white; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); 
+            margin-bottom: 15px; cursor: crosshair; overflow: hidden;
+            touch-action: none; /* 드래그 시 화면 스크롤 방지 */
+        }
+
+        #target-chord { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            font-size: 50px; font-weight: 900; margin: 0; color: #2c3e50; z-index: 5; pointer-events: none; 
+        }
+        
+        #output { position: absolute; width: 100%; height: 100%; top: 0; left: 0; touch-action: none; }
+
+        /* 유령 노트 - 손가락 왼쪽 표시 */
+        #ghost-note {
+            position: absolute; width: 0; height: 0; pointer-events: none; display: none; z-index: 10;
+        }
+        .ghost-head {
+            position: absolute; width: 40px; height: 30px; background: rgba(52, 152, 219, 0.6);
+            border-radius: 50%; transform: translate(-50%, -50%) rotate(-15deg);
+        }
+        .ghost-ledger {
+            position: absolute; height: 4px; width: 60px; background: rgba(52, 152, 219, 0.8);
+            left: -30px; 
+        }
+
+        /* 모바일용 하단 임시표 툴바 (Drag & Release와 호환) */
+        #acc-toolbar {
+            display: flex; gap: 10px; margin-bottom: 10px; background: white; 
+            padding: 10px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .acc-toggle {
+            font-size: 22px; font-weight: bold; width: 50px; height: 50px; 
+            border-radius: 12px; border: 2px solid #ddd; background: var(--bg-gray);
+            display: flex; justify-content: center; align-items: center;
+            color: var(--dark-text); transition: 0.2s;
+        }
+        .acc-toggle.active {
+            background: var(--main-blue); color: white; border-color: var(--main-blue);
+            transform: scale(1.05); box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+        }
+
+        .instruction-box { background: #e8f4f8; padding: 10px; border-radius: 12px; color: var(--main-blue); font-weight: 600; font-size: 14px; text-align: center; width: 90%; max-width: 800px; margin-bottom: 10px;}
+
+        #overlay, #results { position: fixed; inset: 0; background: rgba(255,255,255,0.98); z-index: 2000; }
+        #overlay { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #results { display: none; flex-direction: column; align-items: center; justify-content: flex-start; padding: 60px 20px; overflow-y: auto; box-sizing: border-box; }
+        
+        .menu-card { background: white; padding: 30px 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; gap: 15px; width: 90%; max-width: 400px; }
+        select { padding: 12px; font-size: 18px; border-radius: 10px; border: 2px solid #ddd; outline: none; width: 100%; text-align: center; font-weight: bold; color: var(--dark-text);}
+        .start-btn { padding: 15px; font-size: 22px; background: var(--main-blue); color: white; border: none; border-radius: 15px; font-weight: bold; box-shadow: 0 5px 15px rgba(52,152,219,0.3); }
+        
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); width: 100%; max-width: 600px; margin-bottom: 15px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+
+        #copyright { padding-bottom: 15px; font-size: 12px; color: #95a5a6; text-align: center; font-weight: 500; flex-shrink: 0; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+<div id="top-bar" class="top-nav-bar">
+    <div class="icon-btn" onclick="goHome()">🏠 홈</div>
+    <div id="game-info">
+        Lv.<span id="level-num">1</span> | <span id="score-display">0</span>점 | <span id="timer">60</span>s
+    </div>
+    <div class="icon-btn" onclick="toggleRanking()">🏆</div>
+</div>
+
+<div id="overlay">
+    <div class="menu-card">
+        <h1 style="margin:0; font-size: 36px; color: var(--main-blue);">Chord Master</h1>
+        <select id="level-select">
+            <option value="1">Lv 1: Major Chords</option>
+            <option value="2">Lv 2: Minor Chords</option>
+            <option value="3">Lv 3: 7th Chords</option>
+            <option value="4">Lv 4: Diminished</option>
+            <option value="5">Lv 5: Augmented</option>
+            <option value="6">Lv 6: Sus4 & Add2</option>
+            <option value="7">Lv 7: All Random Mix</option>
+        </select>
+        <button class="start-btn" onclick="initGame()">START</button>
+    </div>
+</div>
+
+<div class="game-content">
+    <div id="combo-info"></div>
+
+    <div id="staff-wrapper">
+        <div id="target-chord">READY...</div>
+        <div id="output"></div>
+        <div id="ghost-note">
+            <div class="ghost-head"></div>
+            <div id="ghost-ledgers"></div>
+        </div>
+    </div>
+
+    <div id="acc-toolbar">
+        <div class="acc-toggle" data-acc="bb">bb</div>
+        <div class="acc-toggle" data-acc="b">b</div>
+        <div class="acc-toggle active" data-acc="">♮</div>
+        <div class="acc-toggle" data-acc="#">#</div>
+        <div class="acc-toggle" data-acc="##">##</div>
+    </div>
+
+    <div class="instruction-box">
+        터치 후 위아래로 <b>드래그</b>하여 위치를 맞추고 <b>손을 떼서</b> 입력하세요.<br>
+        (실행 취소는 왼쪽 상단 🏠홈 버튼 옆을 스와이프하거나 백스페이스)
+    </div>
+</div>
+
+<div id="copyright">Copyright 2026. SomeMusicT. All rights reserved.</div>
+
+<div id="results">
+    <div style="position:absolute; top:15px; left:20px;">
+        <div class="icon-btn" onclick="goHome()">🏠 홈</div>
+    </div>
+    <h1 style="font-size: 30px; margin-bottom: 5px; margin-top: 30px; color: var(--main-blue);">TRAINING COMPLETE</h1>
+    <div id="final-summary" style="font-size: 18px; margin-bottom: 20px; font-weight: bold;"></div>
+    
+    <div class="card">
+        <canvas id="scoreChart" height="150"></canvas>
+    </div>
+    
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: var(--dark-text); font-size: 18px;">🏆 Records</h3>
+            <select id="rank-filter" onchange="filterRankingInResult()" style="width: auto; font-size: 14px; padding: 5px 10px;">
+                <option value="all">전체</option>
+                <option value="1">Lv 1</option><option value="2">Lv 2</option><option value="3">Lv 3</option>
+                <option value="4">Lv 4</option><option value="5">Lv 5</option><option value="6">Lv 6</option><option value="7">Lv 7</option>
+            </select>
+        </div>
+        <table id="rankTable">
+            <thead><tr><th>일시</th><th>Lv</th><th>정확도</th><th>점수</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const VF = Vex.Flow;
+    let staveBaseY = 0;
+    let lineSpacing = 10;
+    // 터치하기 쉽게 스케일을 3.0으로 키움 (줄 간격 확대)
+    const globalScale = 3.0; 
+
+    const chordLib = {
+        Major: [{n:'C',p:[0,4,7]},{n:'Db',p:[1,5,8]},{n:'D',p:[2,6,9]},{n:'Eb',p:[3,7,10]},{n:'E',p:[4,8,11]},{n:'F',p:[5,9,0]},{n:'Gb',p:[6,10,1]},{n:'G',p:[7,11,2]},{n:'Ab',p:[8,0,3]},{n:'A',p:[9,1,4]},{n:'Bb',p:[10,2,5]},{n:'B',p:[11,3,6]}],
+        Minor: [{n:'Cm',p:[0,3,7]},{n:'C#m',p:[1,4,8]},{n:'Dm',p:[2,5,9]},{n:'Ebm',p:[3,6,10]},{n:'Em',p:[4,7,11]},{n:'Fm',p:[5,8,0]},{n:'F#m',p:[6,9,1]},{n:'Gm',p:[7,10,2]},{n:'G#m',p:[8,11,3]},{n:'Am',p:[9,0,4]},{n:'Bbm',p:[10,1,5]},{n:'Bm',p:[11,2,6]}],
+        Seven: [{n:'C7',p:[0,4,7,10]},{n:'D7',p:[2,6,9,0]},{n:'E7',p:[4,8,11,2]},{n:'F7',p:[5,9,0,3]},{n:'G7',p:[7,11,2,5]},{n:'A7',p:[9,1,4,7]},{n:'B7',p:[11,3,6,9]},{n:'Db7',p:[1,5,8,11]},{n:'Eb7',p:[3,7,10,1]},{n:'Gb7',p:[6,10,1,4]},{n:'Ab7',p:[8,0,3,6]},{n:'Bb7',p:[10,2,5,8]}],
+        Dim: [{n:'Cdim',p:[0,3,6]},{n:'Ddim',p:[2,5,8]},{n:'Edim',p:[4,7,10]},{n:'Fdim',p:[5,8,11]},{n:'Gdim',p:[7,10,1]},{n:'Adim',p:[9,0,3]},{n:'Bdim',p:[11,2,5]},{n:'Dbdim',p:[1,4,7]},{n:'Ebdim',p:[3,6,9]},{n:'Gbdim',p:[6,9,0]},{n:'Abdim',p:[8,11,2]},{n:'Bbdim',p:[10,1,4]}],
+        Aug: [{n:'Caug',p:[0,4,8]},{n:'Daug',p:[2,6,10]},{n:'Eaug',p:[4,8,0]},{n:'Faug',p:[5,9,1]},{n:'Gaug',p:[7,11,3]},{n:'Aaug',p:[9,1,5]},{n:'Baug',p:[11,3,7]},{n:'Dbaug',p:[1,5,9]},{n:'Ebaug',p:[3,7,11]},{n:'Gbaug',p:[6,10,2]},{n:'Abaug',p:[8,0,4]},{n:'Bbaug',p:[10,2,6]}],
+        Special: [{n:'Csus4',p:[0,5,7]},{n:'Cadd2',p:[0,2,4,7]},{n:'Dsus4',p:[2,7,9]},{n:'Dadd2',p:[2,4,6,9]},{n:'Esus4',p:[4,9,11]},{n:'Eadd2',p:[4,6,8,11]},{n:'Fsus4',p:[5,10,0]},{n:'Fadd2',p:[5,7,9,0]},{n:'Gsus4',p:[7,0,2]},{n:'Gadd2',p:[7,9,11,2]},{n:'Asus4',p:[9,2,4]},{n:'Aadd2',p:[9,11,1,4]}]
+    };
+
+    let state = { score: 0, timeLeft: 60, playing: false, placed: [], target: null, level: 1, corrects: 0, attempts: 0, currentPool: [], comboCount: 0 };
+    let timerItv;
+    let audioCtx;
+    let selectedAccidental = ""; 
+
+    function initAudio() { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function getFreqFromAbsPitch(absPitch) { return 261.63 * Math.pow(2, (absPitch - 48) / 12); }
+    
+    function playTone(f, d, type='sine') {
+        if(!audioCtx) return;
+        const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        o.type = type; o.frequency.value = f;
+        o.connect(g); g.connect(audioCtx.destination);
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+        o.start(); o.stop(audioCtx.currentTime + d);
+    }
+    
+    function playErrorSound() {
+        if(!audioCtx) return;
+        [2637.02, 2793.83].forEach(freq => {
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = 'triangle'; o.frequency.setValueAtTime(freq, audioCtx.currentTime); 
+            o.connect(g); g.connect(audioCtx.destination);
+            g.gain.setValueAtTime(0, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.015);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.35);
+        });
+    }
+
+    function playChordList(notes) {
+        if(!audioCtx) return;
+        notes.forEach(n => {
+            const f = getFreqFromAbsPitch(n.absPitch);
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.frequency.value = f; o.connect(g); g.connect(audioCtx.destination);
+            g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+            o.start(); o.stop(audioCtx.currentTime + 1.5);
+        });
+    }
+
+    function goHome() {
+        clearInterval(timerItv); state.playing = false;
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('results').style.display = 'none';
+        document.getElementById('target-chord').innerText = "READY...";
+        document.getElementById('combo-info').innerText = "";
+        document.getElementById('ghost-note').style.display = 'none';
+        state.placed = []; drawStaff();
+    }
+
+    function drawStaff(placedNotes = []) {
+        const output = document.getElementById("output");
+        output.innerHTML = ""; 
+        
+        const wrapperWidth = document.getElementById('staff-wrapper').clientWidth;
+        const wrapperHeight = document.getElementById('staff-wrapper').clientHeight;
+
+        const renderer = new VF.Renderer(output, VF.Renderer.Backends.SVG);
+        renderer.resize(wrapperWidth, wrapperHeight); 
+        const context = renderer.getContext();
+        context.scale(globalScale, globalScale);
+        
+        const staveWidth = 250;
+        const staveX = ((wrapperWidth / globalScale) - staveWidth) / 2;
+        // 모바일 화면 비율에 맞춰 Y좌표를 동적으로 조절
+        const staveY = (wrapperHeight / globalScale / 2) - 45; 
+        const stave = new VF.Stave(staveX, Math.max(20, staveY), staveWidth);
+        
+        stave.setBegBarType(VF.Barline.type.NONE);
+        stave.setEndBarType(VF.Barline.type.DOUBLE);
+        stave.addClef("treble").setContext(context).draw();
+
+        staveBaseY = stave.getYForLine(0);
+        lineSpacing = stave.getSpacingBetweenLines();
+
+        if (placedNotes.length > 0) {
+            const sortedNotes = [...placedNotes].sort((a, b) => a.absPitch - b.absPitch);
+            const keys = sortedNotes.map(n => `${n.note}/${n.octave}`);
+            const staveNote = new VF.StaveNote({ clef: "treble", keys: keys, duration: "w" });
+
+            sortedNotes.forEach((n, i) => { if (n.acc) staveNote.addModifier(new VF.Accidental(n.acc), i); });
+
+            const voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+            voice.addTickables([staveNote]);
+            new VF.Formatter().joinVoices([voice]).format([voice], 80); 
+            
+            const canvasCenterUnscaled = (wrapperWidth / globalScale) / 2;
+            const currentTickX = staveNote.getTickContext().getX();
+            const absoluteNoteStartX = stave.getNoteStartX() + currentTickX;
+            
+            const shiftX = canvasCenterUnscaled - absoluteNoteStartX - 8;
+            staveNote.getTickContext().setX(currentTickX + shiftX);
+            voice.draw(context, stave);
+        }
+    }
+
+    // 모바일 임시표 툴바 선택 로직
+    document.querySelectorAll('.acc-toggle').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.acc-toggle').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            selectedAccidental = e.target.getAttribute('data-acc');
+        });
+    });
+
+    function initGame() {
+        initAudio();
+        state.level = parseInt(document.getElementById('level-select').value);
+        document.getElementById('level-num').innerText = state.level;
+        document.getElementById('overlay').style.display = 'none';
+        
+        state.playing = true; state.score = 0; state.timeLeft = 60; state.corrects = 0; state.attempts = 0; state.comboCount = 0; state.currentPool = [];
+        document.getElementById('score-display').innerText = state.score;
+        nextQuest(); startTimer();
+
+        // 리사이즈 시 오선지 재정렬
+        window.addEventListener('resize', () => { if(state.playing) drawStaff(state.placed); });
+    }
+
+    function nextQuest() {
+        state.placed = []; drawStaff();
+        if (state.currentPool.length === 0) {
+            let pool = [];
+            if (state.level === 1) pool = chordLib.Major; else if (state.level === 2) pool = chordLib.Minor;
+            else if (state.level === 3) pool = chordLib.Seven; else if (state.level === 4) pool = chordLib.Dim;
+            else if (state.level === 5) pool = chordLib.Aug; else if (state.level === 6) pool = chordLib.Special;
+            else pool = [].concat(...Object.values(chordLib));
+            state.currentPool = [...pool].sort(() => Math.random() - 0.5);
+        }
+        state.target = state.currentPool.pop();
+        document.getElementById('target-chord').innerText = state.target.n;
+        document.getElementById('combo-info').innerText = "";
+    }
+
+    const outputEl = document.getElementById('output');
+    const ghostNote = document.getElementById('ghost-note');
+    const ghostLedgers = document.getElementById('ghost-ledgers');
+    
+    let isDragging = false;
+    let activeNoteData = null;
+
+    // 모바일 드래그 & 릴리스 지원 (Pointer Events)
+    outputEl.addEventListener('pointerdown', handlePointerDown);
+    outputEl.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    function getPitchData(snapSteps) {
+        const notes = ["f", "e", "d", "c", "b", "a", "g"];
+        let index = snapSteps % 7; if (index < 0) index += 7;
+        const noteName = notes[index];
+        let octave = 4;
+        if (snapSteps <= 3) octave = 5; if (snapSteps <= -4) octave = 6; if (snapSteps >= 11) octave = 3;
+        const pitches = { 'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11 };
+        const basePc = pitches[noteName];
+        return { note: noteName, octave: octave, basePc: basePc, absPitch: (octave * 12) + basePc };
+    }
+
+    function updateGhostNote(e) {
+        const rect = outputEl.getBoundingClientRect();
+        
+        // 손가락 위치보다 살짝 왼쪽(Offset)으로 고스트 노트 이동
+        let touchX = e.clientX - rect.left;
+        let ghostOffsetX = Math.max(30, touchX - 60); 
+
+        const y = e.clientY - rect.top;
+        const visualBaseY = staveBaseY * globalScale;
+        const visualSpacing = lineSpacing * globalScale;
+        const halfSpacing = visualSpacing / 2;
+
+        const relativeY = y - visualBaseY;
+        // Snap 판정 공식
+        let snapSteps = Math.round(relativeY / halfSpacing);
+        snapSteps = Math.max(-6, Math.min(14, snapSteps));
+
+        const snappedY = visualBaseY + (snapSteps * halfSpacing);
+        
+        ghostNote.style.display = 'block';
+        ghostNote.style.top = `${snappedY}px`;
+        ghostNote.style.left = `${ghostOffsetX}px`; 
+
+        ghostLedgers.innerHTML = '';
+        let linesToDraw = [];
+        if (snapSteps <= -2) { for (let i = -2; i >= snapSteps; i -= 2) linesToDraw.push(i); }
+        if (snapSteps >= 10) { for (let i = 10; i <= snapSteps; i += 2) linesToDraw.push(i); }
+
+        linesToDraw.forEach(lineStep => {
+            const dy = (lineStep - snapSteps) * halfSpacing / globalScale; 
+            const line = document.createElement('div');
+            line.className = 'ghost-ledger';
+            line.style.top = `calc(50% + ${dy * globalScale}px)`;
+            ghostLedgers.appendChild(line);
+        });
+
+        activeNoteData = getPitchData(snapSteps);
+    }
+
+    function handlePointerDown(e) {
+        if (!state.playing) return;
+        isDragging = true;
+        outputEl.setPointerCapture(e.pointerId);
+        updateGhostNote(e);
+    }
+
+    function handlePointerMove(e) {
+        if (!isDragging) return;
+        updateGhostNote(e);
+    }
+
+    function handlePointerUp(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        ghostNote.style.display = 'none';
+        
+        if (activeNoteData) {
+            addNote(activeNoteData, selectedAccidental);
+            activeNoteData = null;
+        }
+    }
+
+    // 실행 취소 (ESC, Backspace)
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Backspace') {
+            if (e.key === 'Backspace') e.preventDefault();
+            if (state.playing && state.placed.length > 0) {
+                state.placed.pop(); drawStaff(state.placed);
+                const infoEl = document.getElementById('combo-info');
+                infoEl.innerText = "입력 취소됨"; infoEl.style.color = "var(--dark-text)";
+                setTimeout(() => { if(infoEl.innerText === "입력 취소됨") infoEl.innerText = ""; }, 800);
+            }
+        }
+    });
+
+    function addNote(data, accidental) {
+        if (state.placed.length >= state.target.p.length) return;
+
+        let accOffset = 0;
+        if (accidental === '#') accOffset = 1; if (accidental === 'b') accOffset = -1;
+        if (accidental === 'bb') accOffset = -2; if (accidental === '##') accOffset = 2; 
+        
+        let actualPc = (data.basePc + accOffset + 12) % 12;
+        let actualAbsPitch = data.absPitch + accOffset;
+
+        state.placed.push({ note: data.note, octave: data.octave, acc: accidental, pc: actualPc, absPitch: actualAbsPitch });
+        drawStaff(state.placed);
+        playTone(getFreqFromAbsPitch(actualAbsPitch), 0.2);
+
+        if (state.placed.length === state.target.p.length) setTimeout(checkAnswer, 100);
+    }
+
+    function checkAnswer() {
+        state.attempts++;
+        const inputPc = state.placed.map(p => p.pc).sort((a,b) => a-b);
+        const targetPc = [...state.target.p].sort((a,b) => a-b);
+        const isCorrect = inputPc.every((val, i) => val === targetPc[i]);
+        
+        if (isCorrect) {
+            state.corrects++;
+            let baseScore = 100 * state.level; 
+            state.comboCount++;
+            let multiplier = Math.pow(2, state.comboCount - 1);
+            let gain = baseScore * multiplier; state.score += gain;
+            
+            if (state.comboCount > 1) {
+                document.getElementById('combo-info').innerText = `Perfect! 🎯 🔥 ${state.comboCount} 콤보! (+${gain})`;
+                document.getElementById('combo-info').style.color = "#f39c12"; 
+            } else {
+                document.getElementById('combo-info').innerText = `Perfect! 🎯 (+${gain})`;
+                document.getElementById('combo-info').style.color = "#2ecc71";
+            }
+            playChordList(state.placed);
+            setTimeout(nextQuest, 500); 
+        } else {
+            state.comboCount = 0; 
+            document.getElementById('combo-info').innerText = "Oops! 다시 그려보세요 ⚠️";
+            document.getElementById('combo-info').style.color = "#e74c3c";
+            playErrorSound();
+            setTimeout(() => { state.placed = []; drawStaff(); document.getElementById('combo-info').innerText = ""; }, 800);
+        }
+        document.getElementById('score-display').innerText = state.score;
+    }
+
+    function startTimer() {
+        clearInterval(timerItv);
+        timerItv = setInterval(() => {
+            state.timeLeft--; document.getElementById('timer').innerText = state.timeLeft;
+            if (state.timeLeft <= 0) { clearInterval(timerItv); finishGame(); }
+        }, 1000);
+    }
+
+    function finishGame() {
+        state.playing = false; ghostNote.style.display = 'none';
+        const accuracy = state.attempts === 0 ? 0 : Math.round((state.corrects / state.attempts) * 100);
+        const record = { date: new Date().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }), level: state.level, acc: accuracy, score: state.score };
+        let logs = JSON.parse(localStorage.getItem('chord_ranks_v4') || '[]');
+        logs.unshift(record); localStorage.setItem('chord_ranks_v4', JSON.stringify(logs.slice(0, 100)));
+        showRanking(logs.slice(0, 100), state.level.toString(), accuracy);
+    }
+
+    function showRanking(logs, filterLevel = 'all', acc = undefined) {
+        document.getElementById('overlay').style.display = 'none'; document.getElementById('results').style.display = 'flex';
+        if (acc !== undefined) {
+            document.getElementById('final-summary').innerText = `최종 점수: ${state.score} | 정확도: ${acc}%`;
+            document.getElementById('final-summary').style.display = 'block';
+        } else { document.getElementById('final-summary').style.display = 'none'; }
+
+        document.getElementById('rank-filter').value = filterLevel;
+        let filteredLogs = filterLevel !== 'all' ? logs.filter(l => l.level === parseInt(filterLevel)) : logs;
+        const displayLogs = filteredLogs.slice(0, 10);
+        const tbody = document.querySelector('#rankTable tbody');
+        
+        if (displayLogs.length === 0) tbody.innerHTML = `<tr><td colspan="4">기록이 없습니다.</td></tr>`;
+        else tbody.innerHTML = displayLogs.map(r => `<tr><td>${r.date}</td><td>Lv.${r.level}</td><td>${r.acc}%</td><td>${r.score}</td></tr>`).join('');
+        
+        const ctx = document.getElementById('scoreChart').getContext('2d');
+        if(window.myChart) window.myChart.destroy(); 
+        window.myChart = new Chart(ctx, {
+            type: 'line', data: { labels: displayLogs.slice().reverse().map(l => l.date.split(' ')[1]), datasets: [{ label: '정확도 (%)', data: displayLogs.slice().reverse().map(l => l.acc), borderColor: '#3498db', backgroundColor: 'rgba(52, 152, 219, 0.1)', fill: true, tension: 0.3 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+        });
+    }
+
+    window.filterRankingInResult = function() {
+        const lvl = document.getElementById('rank-filter').value;
+        const logs = JSON.parse(localStorage.getItem('chord_ranks_v4') || '[]');
+        showRanking(logs, lvl);
+    }
+    function toggleRanking() { const logs = JSON.parse(localStorage.getItem('chord_ranks_v4') || '[]'); showRanking(logs, 'all'); }
+</script>
+</body>
+</html>
