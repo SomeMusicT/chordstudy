@@ -184,7 +184,9 @@
     const VF = Vex.Flow;
     let staveBaseY = 0;
     let lineSpacing = 10;
-    const globalScale = 3.0; // 넓은 줄 간격 유지
+    
+    // 모바일에서 화면 밖으로 밀려나지 않는 최적의 돋보기 배율
+    const globalScale = 2.5; 
 
     const chordLib = {
         Major: [{n:'C',p:[0,4,7]},{n:'Db',p:[1,5,8]},{n:'D',p:[2,6,9]},{n:'Eb',p:[3,7,10]},{n:'E',p:[4,8,11]},{n:'F',p:[5,9,0]},{n:'Gb',p:[6,10,1]},{n:'G',p:[7,11,2]},{n:'Ab',p:[8,0,3]},{n:'A',p:[9,1,4]},{n:'Bb',p:[10,2,5]},{n:'B',p:[11,3,6]}],
@@ -248,6 +250,7 @@
         state.placed = []; drawStaff();
     }
 
+    // ★ 이 부분이 핵심적으로 수정된 도화지 중앙 정렬 코드입니다!
     function drawStaff(placedNotes = []) {
         const output = document.getElementById("output");
         output.innerHTML = ""; 
@@ -260,12 +263,18 @@
         const context = renderer.getContext();
         context.scale(globalScale, globalScale);
         
-        const staveWidth = 250;
-        const staveX = ((wrapperWidth / globalScale) - staveWidth) / 2;
+        // 돋보기가 적용된 후의 실제 도화지 크기 계산
+        const logicalWidth = wrapperWidth / globalScale;
+        const logicalHeight = wrapperHeight / globalScale;
         
-        // 높은음자리표가 윗부분이 잘리지 않도록 안전한 Y좌표(최소 45)를 보장합니다.
-        const internalHeight = wrapperHeight / globalScale;
-        const staveY = Math.max(45, (internalHeight / 2) - 25); 
+        // 오선지가 폰 화면 밖으로 밀려나지 않도록 가로 길이 자동 조절
+        const staveWidth = Math.min(250, logicalWidth - 20);
+        
+        // 높은음자리표가 절대 짤리지 않게 무조건 왼쪽 여백(최소 10) 확보!
+        const staveX = Math.max(10, (logicalWidth - staveWidth) / 2);
+        
+        // 오선지를 도화지 정중앙에 배치 (오선지 기본 높이의 절반인 25를 빼서 정확히 중앙 타겟팅)
+        const staveY = Math.max(30, (logicalHeight / 2) - 25); 
         const stave = new VF.Stave(staveX, staveY, staveWidth);
         
         stave.setBegBarType(VF.Barline.type.NONE);
@@ -286,12 +295,12 @@
             voice.addTickables([staveNote]);
             new VF.Formatter().joinVoices([voice]).format([voice], 80); 
             
-            const canvasCenterUnscaled = (wrapperWidth / globalScale) / 2;
+            // 음표들도 삐뚤어지지 않게 화면 정중앙으로 예쁘게 모아줌
             const currentTickX = staveNote.getTickContext().getX();
             const absoluteNoteStartX = stave.getNoteStartX() + currentTickX;
-            
-            const shiftX = canvasCenterUnscaled - absoluteNoteStartX - 8;
+            const shiftX = (logicalWidth / 2) - absoluteNoteStartX - 8;
             staveNote.getTickContext().setX(currentTickX + shiftX);
+            
             voice.draw(context, stave);
         }
     }
@@ -511,3 +520,4 @@
 </script>
 </body>
 </html>
+
