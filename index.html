@@ -45,7 +45,6 @@
 
         #combo-info { height: 24px; font-weight: bold; font-size: 20px; color: var(--main-blue); margin-bottom: 10px; }
 
-        /* 오선지 래퍼: 남는 세로 공간을 모두 차지하도록 flex: 1 적용 */
         #staff-wrapper { 
             flex: 1; 
             position: relative; width: 100%; max-width: 850px; 
@@ -64,13 +63,15 @@
         #ghost-note {
             position: absolute; width: 0; height: 0; pointer-events: none; display: none; z-index: 10;
         }
+        
+        /* 1. 유령 음표 크기 살짝 축소 */
         .ghost-head {
-            position: absolute; width: 40px; height: 30px; background: rgba(52, 152, 219, 0.6);
+            position: absolute; width: 34px; height: 26px; background: rgba(52, 152, 219, 0.6);
             border-radius: 50%; transform: translate(-50%, -50%) rotate(-15deg);
         }
         .ghost-ledger {
-            position: absolute; height: 4px; width: 60px; background: rgba(52, 152, 219, 0.8);
-            left: -30px; 
+            position: absolute; height: 4px; width: 54px; background: rgba(52, 152, 219, 0.8);
+            left: -27px; 
         }
 
         #acc-toolbar {
@@ -265,10 +266,8 @@
         const staveWidth = Math.min(250, logicalWidth - 20);
         const staveX = Math.max(10, (logicalWidth - staveWidth) / 2);
         
-        // 🚀 바로 이 숫자(28)가 엘리베이터입니다! 
-        // 텍스트와 딱 붙도록 오선지를 위로 바짝 끌어올렸어요. 
-        // 숫자를 더 줄이면 위로 가고, 더 키우면 아래로 갑니다.
-        const staveY = 28; 
+        // 2. 오선지 위치 더 위로! (28 -> 15로 더 작게 만들어서 위로 끌어올림)
+        const staveY = 15; 
         
         const stave = new VF.Stave(staveX, staveY, staveWidth);
         
@@ -430,6 +429,11 @@
         drawStaff(state.placed);
         playTone(getFreqFromAbsPitch(actualAbsPitch), 0.2);
 
+        // 3. 임시표 자동 리셋 기능! (음표를 찍은 직후 무조건 내추럴 상태로 되돌림)
+        selectedAccidental = "";
+        document.querySelectorAll('.acc-toggle').forEach(b => b.classList.remove('active'));
+        document.querySelector('.acc-toggle[data-acc=""]').classList.add('active');
+
         if (state.placed.length === state.target.p.length) setTimeout(checkAnswer, 100);
     }
 
@@ -514,5 +518,3 @@
 </script>
 </body>
 </html>
-
-
