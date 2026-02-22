@@ -17,7 +17,7 @@
             justify-content: space-between; 
             align-items: center; 
             margin: 0; 
-            height: 100dvh; /* 모바일 브라우저 툴바 대응 */
+            height: 100dvh; 
             overflow: hidden; 
             user-select: none; 
             -webkit-user-select: none;
@@ -39,28 +39,28 @@
         }
         
         .game-content {
-            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            width: 100%; padding: 0 10px; box-sizing: border-box;
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; 
+            width: 100%; padding: 10px; box-sizing: border-box;
         }
 
         #combo-info { height: 24px; font-weight: bold; font-size: 20px; color: var(--main-blue); margin-bottom: 10px; }
 
-        /* 모바일 대응 오선지 래퍼 */
+        /* 오선지 래퍼: 남는 세로 공간을 모두 차지하도록 flex: 1 적용 */
         #staff-wrapper { 
-            position: relative; width: 100%; max-width: 850px; height: 40vh; min-height: 280px;
+            flex: 1; 
+            position: relative; width: 100%; max-width: 850px; 
             background: white; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); 
             margin-bottom: 15px; cursor: crosshair; overflow: hidden;
-            touch-action: none; /* 드래그 시 화면 스크롤 방지 */
+            touch-action: none; 
         }
 
         #target-chord { 
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            font-size: 50px; font-weight: 900; margin: 0; color: #2c3e50; z-index: 5; pointer-events: none; 
+            font-size: 45px; font-weight: 900; margin: 0; color: #2c3e50; z-index: 5; pointer-events: none; 
         }
         
         #output { position: absolute; width: 100%; height: 100%; top: 0; left: 0; touch-action: none; }
 
-        /* 유령 노트 - 손가락 왼쪽 표시 */
         #ghost-note {
             position: absolute; width: 0; height: 0; pointer-events: none; display: none; z-index: 10;
         }
@@ -73,10 +73,10 @@
             left: -30px; 
         }
 
-        /* 모바일용 하단 임시표 툴바 (Drag & Release와 호환) */
         #acc-toolbar {
-            display: flex; gap: 10px; margin-bottom: 10px; background: white; 
+            display: flex; gap: 10px; margin-bottom: 15px; background: white; 
             padding: 10px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            flex-shrink: 0;
         }
         .acc-toggle {
             font-size: 22px; font-weight: bold; width: 50px; height: 50px; 
@@ -88,8 +88,6 @@
             background: var(--main-blue); color: white; border-color: var(--main-blue);
             transform: scale(1.05); box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
         }
-
-        .instruction-box { background: #e8f4f8; padding: 10px; border-radius: 12px; color: var(--main-blue); font-weight: 600; font-size: 14px; text-align: center; width: 90%; max-width: 800px; margin-bottom: 10px;}
 
         #overlay, #results { position: fixed; inset: 0; background: rgba(255,255,255,0.98); z-index: 2000; }
         #overlay { display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -151,11 +149,6 @@
         <div class="acc-toggle" data-acc="#">#</div>
         <div class="acc-toggle" data-acc="##">##</div>
     </div>
-
-    <div class="instruction-box">
-        터치 후 위아래로 <b>드래그</b>하여 위치를 맞추고 <b>손을 떼서</b> 입력하세요.<br>
-        (실행 취소는 왼쪽 상단 🏠홈 버튼 옆을 스와이프하거나 백스페이스)
-    </div>
 </div>
 
 <div id="copyright">Copyright 2026. SomeMusicT. All rights reserved.</div>
@@ -191,8 +184,7 @@
     const VF = Vex.Flow;
     let staveBaseY = 0;
     let lineSpacing = 10;
-    // 터치하기 쉽게 스케일을 3.0으로 키움 (줄 간격 확대)
-    const globalScale = 3.0; 
+    const globalScale = 3.0; // 넓은 줄 간격 유지
 
     const chordLib = {
         Major: [{n:'C',p:[0,4,7]},{n:'Db',p:[1,5,8]},{n:'D',p:[2,6,9]},{n:'Eb',p:[3,7,10]},{n:'E',p:[4,8,11]},{n:'F',p:[5,9,0]},{n:'Gb',p:[6,10,1]},{n:'G',p:[7,11,2]},{n:'Ab',p:[8,0,3]},{n:'A',p:[9,1,4]},{n:'Bb',p:[10,2,5]},{n:'B',p:[11,3,6]}],
@@ -270,9 +262,11 @@
         
         const staveWidth = 250;
         const staveX = ((wrapperWidth / globalScale) - staveWidth) / 2;
-        // 모바일 화면 비율에 맞춰 Y좌표를 동적으로 조절
-        const staveY = (wrapperHeight / globalScale / 2) - 45; 
-        const stave = new VF.Stave(staveX, Math.max(20, staveY), staveWidth);
+        
+        // 높은음자리표가 윗부분이 잘리지 않도록 안전한 Y좌표(최소 45)를 보장합니다.
+        const internalHeight = wrapperHeight / globalScale;
+        const staveY = Math.max(45, (internalHeight / 2) - 25); 
+        const stave = new VF.Stave(staveX, staveY, staveWidth);
         
         stave.setBegBarType(VF.Barline.type.NONE);
         stave.setEndBarType(VF.Barline.type.DOUBLE);
@@ -302,7 +296,6 @@
         }
     }
 
-    // 모바일 임시표 툴바 선택 로직
     document.querySelectorAll('.acc-toggle').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.acc-toggle').forEach(b => b.classList.remove('active'));
@@ -321,7 +314,6 @@
         document.getElementById('score-display').innerText = state.score;
         nextQuest(); startTimer();
 
-        // 리사이즈 시 오선지 재정렬
         window.addEventListener('resize', () => { if(state.playing) drawStaff(state.placed); });
     }
 
@@ -347,7 +339,6 @@
     let isDragging = false;
     let activeNoteData = null;
 
-    // 모바일 드래그 & 릴리스 지원 (Pointer Events)
     outputEl.addEventListener('pointerdown', handlePointerDown);
     outputEl.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
@@ -365,8 +356,6 @@
 
     function updateGhostNote(e) {
         const rect = outputEl.getBoundingClientRect();
-        
-        // 손가락 위치보다 살짝 왼쪽(Offset)으로 고스트 노트 이동
         let touchX = e.clientX - rect.left;
         let ghostOffsetX = Math.max(30, touchX - 60); 
 
@@ -376,7 +365,6 @@
         const halfSpacing = visualSpacing / 2;
 
         const relativeY = y - visualBaseY;
-        // Snap 판정 공식
         let snapSteps = Math.round(relativeY / halfSpacing);
         snapSteps = Math.max(-6, Math.min(14, snapSteps));
 
@@ -424,19 +412,6 @@
             activeNoteData = null;
         }
     }
-
-    // 실행 취소 (ESC, Backspace)
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' || e.key === 'Backspace') {
-            if (e.key === 'Backspace') e.preventDefault();
-            if (state.playing && state.placed.length > 0) {
-                state.placed.pop(); drawStaff(state.placed);
-                const infoEl = document.getElementById('combo-info');
-                infoEl.innerText = "입력 취소됨"; infoEl.style.color = "var(--dark-text)";
-                setTimeout(() => { if(infoEl.innerText === "입력 취소됨") infoEl.innerText = ""; }, 800);
-            }
-        }
-    });
 
     function addNote(data, accidental) {
         if (state.placed.length >= state.target.p.length) return;
