@@ -185,7 +185,6 @@
     let staveBaseY = 0;
     let lineSpacing = 10;
     
-    // 모바일에서 화면 밖으로 밀려나지 않는 최적의 돋보기 배율
     const globalScale = 2.5; 
 
     const chordLib = {
@@ -250,7 +249,6 @@
         state.placed = []; drawStaff();
     }
 
-    // ★ 이 부분이 핵심적으로 수정된 도화지 중앙 정렬 코드입니다!
     function drawStaff(placedNotes = []) {
         const output = document.getElementById("output");
         output.innerHTML = ""; 
@@ -263,18 +261,15 @@
         const context = renderer.getContext();
         context.scale(globalScale, globalScale);
         
-        // 돋보기가 적용된 후의 실제 도화지 크기 계산
         const logicalWidth = wrapperWidth / globalScale;
-        const logicalHeight = wrapperHeight / globalScale;
-        
-        // 오선지가 폰 화면 밖으로 밀려나지 않도록 가로 길이 자동 조절
         const staveWidth = Math.min(250, logicalWidth - 20);
-        
-        // 높은음자리표가 절대 짤리지 않게 무조건 왼쪽 여백(최소 10) 확보!
         const staveX = Math.max(10, (logicalWidth - staveWidth) / 2);
         
-        // 오선지를 도화지 정중앙에 배치 (오선지 기본 높이의 절반인 25를 빼서 정확히 중앙 타겟팅)
-        const staveY = Math.max(30, (logicalHeight / 2) - 25); 
+        // 🚀 바로 이 숫자(28)가 엘리베이터입니다! 
+        // 텍스트와 딱 붙도록 오선지를 위로 바짝 끌어올렸어요. 
+        // 숫자를 더 줄이면 위로 가고, 더 키우면 아래로 갑니다.
+        const staveY = 28; 
+        
         const stave = new VF.Stave(staveX, staveY, staveWidth);
         
         stave.setBegBarType(VF.Barline.type.NONE);
@@ -295,7 +290,6 @@
             voice.addTickables([staveNote]);
             new VF.Formatter().joinVoices([voice]).format([voice], 80); 
             
-            // 음표들도 삐뚤어지지 않게 화면 정중앙으로 예쁘게 모아줌
             const currentTickX = staveNote.getTickContext().getX();
             const absoluteNoteStartX = stave.getNoteStartX() + currentTickX;
             const shiftX = (logicalWidth / 2) - absoluteNoteStartX - 8;
@@ -520,4 +514,5 @@
 </script>
 </body>
 </html>
+
 
